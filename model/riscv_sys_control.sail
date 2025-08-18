@@ -156,7 +156,7 @@ function trap_handler(del_priv : Privilege, intr : bool, c : exc_code, pc : xlen
                      -> xlenbits = {
   trap_callback();
   if   get_config_print_platform()
-  then print_platform("handling " ^ (if intr then "int#" else "exc#")
+  then print_log("handling " ^ (if intr then "int#" else "exc#")
                       ^ bits_str(c) ^ " at priv " ^ to_str(del_priv)
                       ^ " with tval " ^ bits_str(tval(info)));
 
@@ -213,7 +213,7 @@ function exception_handler(cur_priv : Privilege, ctl : ctl_result,
     (_, CTL_TRAP(e)) => {
       let del_priv = exception_delegatee(e.trap, cur_priv);
       if   get_config_print_platform()
-      then print_platform("trapping from " ^ to_str(cur_priv) ^ " to " ^ to_str(del_priv)
+      then print_log("trapping from " ^ to_str(cur_priv) ^ " to " ^ to_str(del_priv)
                           ^ " to handle " ^ to_str(e.trap));
       trap_handler(del_priv, false, exceptionType_to_bits(e.trap), pc, e.excinfo, e.ext)
     },
@@ -229,7 +229,7 @@ function exception_handler(cur_priv : Privilege, ctl : ctl_result,
       long_csr_write_callback("mstatus", "mstatush", mstatus.bits);
 
       if   get_config_print_platform()
-      then print_platform("ret-ing from " ^ to_str(prev_priv) ^ " to " ^ to_str(cur_privilege));
+      then print_log("ret-ing from " ^ to_str(prev_priv) ^ " to " ^ to_str(cur_privilege));
 
       prepare_xret_target(Machine)
     },
@@ -245,7 +245,7 @@ function exception_handler(cur_priv : Privilege, ctl : ctl_result,
       long_csr_write_callback("mstatus", "mstatush", mstatus.bits);
 
       if   get_config_print_platform()
-      then print_platform("ret-ing from " ^ to_str(prev_priv)
+      then print_log("ret-ing from " ^ to_str(prev_priv)
                           ^ " to " ^ to_str(cur_privilege));
 
       prepare_xret_target(Supervisor)
@@ -275,11 +275,14 @@ function reset_misa() -> unit = {
   misa[A]   = bool_to_bits(hartSupports(Ext_A));   /* atomics */
   misa[C]   = bool_to_bits(hartSupports(Ext_C));   /* RVC */
   misa[B]   = bool_to_bits(hartSupports(Ext_B));   /* Bit-manipulation */
-  misa[I]   = 0b1;                                 /* base integer ISA */
   misa[M]   = bool_to_bits(hartSupports(Ext_M));   /* integer multiply/divide */
   misa[U]   = bool_to_bits(hartSupports(Ext_U));   /* user-mode */
   misa[S]   = bool_to_bits(hartSupports(Ext_S));   /* supervisor-mode */
   misa[V]   = bool_to_bits(hartSupports(Ext_V));   /* vector extension */
+
+  // Base integer ISA (disabled if we only support the 16-register E base).
+  misa[E] = bool_to_bits(base_E_enabled);
+  misa[I] = ~(misa[E]);
 
   if   hartSupports(Ext_F) & hartSupports(Ext_Zfinx)
   then internal_error(__FILE__, __LINE__, "F and Zfinx cannot both be enabled!");

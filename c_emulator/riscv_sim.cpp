@@ -1,7 +1,6 @@
 #include <cassert>
 #include <ctype.h>
 #include <climits>
-#include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -14,6 +13,7 @@
 #include <optional>
 #include <iostream>
 #include <vector>
+#include <cstring>
 
 #include "CLI11.hpp"
 #include "elf.h"
@@ -29,18 +29,9 @@
 #include "default_config.h"
 #include "config_utils.h"
 #include "sail_riscv_version.h"
-
-enum {
-  OPT_TRACE_OUTPUT = 1000,
-  OPT_PRINT_CONFIG,
-  OPT_VALIDATE_CONFIG,
-  OPT_SAILCOV,
-  OPT_ENABLE_EXPERIMENTAL_EXTENSIONS,
-  OPT_PRINT_VERSION,
-  OPT_BUILD_INFO,
-  OPT_PRINT_DTS,
-  OPT_PRINT_ISA,
-};
+#include "riscv_callbacks_if.h"
+#include "riscv_callbacks_log.h"
+#include "riscv_callbacks_rvfi.h"
 
 bool do_show_times = false;
 bool do_print_version = false;
@@ -60,6 +51,8 @@ size_t dtb_len = 0;
 int rvfi_dii_port = 0;
 std::optional<rvfi_handler> rvfi;
 std::vector<std::string> elfs;
+
+rvfi_callbacks rvfi_cbs;
 
 std::string sig_file;
 uint64_t mem_sig_start = 0;
@@ -84,11 +77,11 @@ uint64_t insn_limit = 0;
 char *sailcov_file = NULL;
 #endif
 
-static void validate_config(const char *conf_file)
+static void validate_config(const std::string &conf_file)
 {
   const char *s = zconfig_is_valid(UNIT) ? "valid" : "invalid";
-  if (conf_file) {
-    fprintf(stdout, "Configuration in %s is %s.\n", conf_file, s);
+  if (!conf_file.empty()) {
+    fprintf(stdout, "Configuration in %s is %s.\n", conf_file.c_str(), s);
   } else {
     fprintf(stdout, "Default configuration is %s.\n", s);
   }
@@ -568,6 +561,13 @@ int main(int argc, char **argv)
   CLI::App app("Sail RISC-V Model");
   argv = app.ensure_utf8(argv);
   setup_options(app);
+
+  // long_options_offset() is a local addition, so when updating CLI11,
+  // see how https://github.com/CLIUtils/CLI11/pull/1185 ended up,
+  // and possibly implement the upstream solution.
+  app.get_formatter()->long_options_offset(6);
+  app.get_formatter()->column_width(45);
+
   try {
     app.parse(argc, argv);
   } catch (const CLI::ParseError &e) {
@@ -627,7 +627,7 @@ int main(int argc, char **argv)
   model_init();
 
   if (do_validate_config) {
-    validate_config(config_file.c_str());
+    validate_config(config_file);
   }
   if (do_print_dts) {
     print_dts();
@@ -643,6 +643,9 @@ int main(int argc, char **argv)
   }
 
   init_logs();
+  log_callbacks log_cbs(config_print_reg, config_print_mem_access,
+                        config_use_abi_names, trace_log);
+  register_callback(&log_cbs);
 
   if (gettimeofday(&init_start, NULL) < 0) {
     fprintf(stderr, "Cannot gettimeofday: %s\n", strerror(errno));
@@ -652,6 +655,7 @@ int main(int argc, char **argv)
   if (rvfi) {
     if (!rvfi->setup_socket(config_print_rvfi))
       return 1;
+    register_callback(&rvfi_cbs);
   }
 
   const std::string &initial_elf_file = elfs[0];
