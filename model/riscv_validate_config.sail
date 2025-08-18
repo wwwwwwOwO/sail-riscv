@@ -88,7 +88,7 @@ function check_vext_config() -> bool = {
   // Standard Vector Extensions
   if hartSupports(Ext_Zve32x)  & not(hartSupports(Ext_Zvl32b)) then {
     valid = false;
-    print_endline("VLEN (set to 2^" ^ dec_str(VLEN_pow) ^ ") is below the minimum required for Zve32x (need Zvl32b).");
+    print_endline("VLEN (set to 2^" ^ dec_str(vlen_exp) ^ ") is below the minimum required for Zve32x (need Zvl32b).");
   };
   if hartSupports(Ext_Zve32f)  & (not(hartSupports(Ext_Zve32x)) | not(hartSupports(Ext_F))) then {
     valid = false;
@@ -96,7 +96,7 @@ function check_vext_config() -> bool = {
   };
   if hartSupports(Ext_Zve64x) & not(hartSupports(Ext_Zvl64b)) then {
     valid = false;
-    print_endline("VLEN (set to 2^" ^ dec_str(VLEN_pow) ^ ") is below the minimum required for Zve64x (need Zvl64b).");
+    print_endline("VLEN (set to 2^" ^ dec_str(vlen_exp) ^ ") is below the minimum required for Zve64x (need Zvl64b).");
   };
   if hartSupports(Ext_Zve64x) & not(hartSupports(Ext_Zve32x)) then {
     valid = false;
@@ -112,7 +112,7 @@ function check_vext_config() -> bool = {
   };
   if hartSupports(Ext_V) & not(hartSupports(Ext_Zvl128b)) then {
     valid = false;
-    print_endline("VLEN (set to 2^" ^ dec_str(VLEN_pow) ^ ") is below the minimum required for V (need Zvl128b).");
+    print_endline("VLEN (set to 2^" ^ dec_str(vlen_exp) ^ ") is below the minimum required for V (need Zvl128b).");
   };
   if hartSupports(Ext_V) & not(hartSupports(Ext_Zve64d)) then {
     valid = false;
